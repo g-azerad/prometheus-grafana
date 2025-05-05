@@ -1,0 +1,10 @@
+---
+- name: Setup server playbook
+  hosts: 
+    - application
+    - monitoring
+  become: true
+  gather_facts: true
+  roles:
+    - role: server
+...

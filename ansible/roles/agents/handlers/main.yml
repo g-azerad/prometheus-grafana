@@ -1,0 +1,19 @@
+---
+- name: Stop docker compose agents
+  docker_compose_v2:
+    project_src: "{{ agents_dir }}"
+    state: absent
+  become_user: "{{ application_user }}"
+
+- name: Start docker compose agents
+  docker_compose_v2:
+    project_src: "{{ agents_dir }}"
+    state: present
+  become_user: "{{ application_user }}"
+
+- name: Restart docker compose agents
+  docker_compose_v2:
+    project_src: "{{ agents_dir }}"
+    state: restarted
+  become_user: "{{ application_user }}"
+...

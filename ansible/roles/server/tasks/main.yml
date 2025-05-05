@@ -1,0 +1,8 @@
+---
+- import_tasks: docker.yml
+  tags:
+    - setup-docker
+- import_tasks: ca-cert.yml
+  tags:
+    - setup-ca-cert
+...

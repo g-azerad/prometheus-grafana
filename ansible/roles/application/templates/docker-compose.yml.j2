@@ -1,0 +1,46 @@
+# {{ ansible_managed | comment }}
+
+services:
+  counter-api:
+    image: gazerad/counter-api:{{ versions.counter_api }}
+    container_name: counter-api
+    stop_signal: SIGINT
+    ports:
+      - "80:5000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: user_db
+      DB_PASSWORD: "{{ db_user_password }}"
+      DB_NAME: counter_db
+      FLASK_PORT: 5000
+      DEBUG_MODE: false
+    depends_on:
+      - db
+    networks:
+      - app_network
+
+  db:
+    image: postgres:{{ versions.postgres }}
+    container_name: db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "{{ postgres_password }}"
+      DB_USER: user_db
+      DB_PASSWORD: "{{ db_user_password }}"
+      DB_NAME: counter_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init-user-db.sh:/docker-entrypoint-initdb.d/1-init-user-db.sh:ro
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+
+volumes:
+  db_data:
+
+networks:
+  app_network:
+    driver: bridge

@@ -1,0 +1,103 @@
+---
+- name: Collect local facts
+  setup:
+    gather_subset: "!all,distribution"
+  delegate_to: localhost
+  run_once: true
+
+- name: Set operating_system from local facts
+  set_fact:
+    os_local: "{{ ansible_distribution | lower }}"
+  delegate_to: localhost
+
+- name: Check if local operating system is supported
+  fail:
+    msg: "Unsupported operating system: {{ os_local }} (only debian or ubuntu are)"
+  when: os_local not in ['debian', 'ubuntu']
+
+- name: Set DEB architecture for local machine
+  set_fact:
+    deb_architecture_local: "{{ ansible_architecture | regex_replace('x86_64', 'amd64') | regex_replace('aarch64', 'arm64') }}"
+  delegate_to: localhost
+  changed_when: false
+
+- name: Get mkcert version if installed
+  command: mkcert --version
+  register: mkcert_version_check
+  failed_when: false
+  changed_when: false
+  check_mode: no
+  delegate_to: localhost
+  become: false
+  run_once: true
+  vars:
+    ansible_connection: local
+
+- name: Register mkcert version
+  set_fact:
+    mkcert_installed_version: "{{ mkcert_version_check.stdout if mkcert_version_check.rc == 0 else '0' }}"
+
+- name: Install mkcert if not present or from a different version than {{ versions.mkcert }}
+  get_url:
+    url: "https://github.com/FiloSottile/mkcert/releases/download/v{{ versions.mkcert }}/mkcert-v{{ versions.mkcert }}-linux-{{ deb_architecture_local }}"
+    dest: "/usr/local/bin/mkcert"
+    mode: "0755"
+    owner: root
+    group: root
+  become: true
+  when: mkcert_installed_version != versions.mkcert
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+
+- name: Generate root certificate if necessary
+  command: mkcert -install
+  delegate_to: localhost
+  become: false
+  run_once: true
+  vars:
+    ansible_connection: local
+
+- name: Get CAROOT local path
+  shell: |
+    for profile in ~/.bash_profile ~/.bashrc ~/.profile; do
+      [ -f "$profile" ] && source "$profile" && break
+    done
+    mkcert -CAROOT
+  args:
+    executable: /bin/bash
+  register: mkcert_caroot_check
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  run_once: true
+  vars:
+    ansible_connection: local
+
+- name: Register CAROOT local path
+  set_fact:
+    mkcert_caroot: "{{ mkcert_caroot_check.stdout if mkcert_version_check.rc == 0 }}"
+
+- name: Copy mkcert root CA to target hosts
+  copy:
+    src: "{{ mkcert_caroot }}/rootCA.pem"
+    dest: "/usr/local/share/ca-certificates/rootCA.crt"
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
+
+- name: Install ca-certificates package on target hosts
+  apt:
+    name: ca-certificates
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Reload certificate authorities on target hosts
+  command: update-ca-certificates
+  become: true
+  register: update_ca_result
+  changed_when: "'updated' in update_ca_result.stdout"
+...

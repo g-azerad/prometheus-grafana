@@ -1,0 +1,10 @@
+---
+- name: Monitoring deployment playbook
+  hosts: monitoring
+  become: true
+  gather_facts: false
+  roles:
+    - role: monitoring
+      tags:
+        - monitoring
+...

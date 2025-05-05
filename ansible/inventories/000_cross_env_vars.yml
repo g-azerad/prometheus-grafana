@@ -1,0 +1,11 @@
+# General paths on the server
+application_dir: /srv/application
+agents_dir: /srv/agents
+monitoring_dir: /srv/monitoring
+
+# User used to run the application
+application_user: adminvm
+
+# Passwords and keys
+postgres_password: "{{ vault_postgres_password }}"
+db_user_password: "{{ vault_db_user_password }}"

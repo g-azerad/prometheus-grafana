@@ -1,0 +1,2 @@
+agents_dir: "/srv/agents"
+node_exporter_conf_dir: "{{ agents_dir }}/node_exporter"

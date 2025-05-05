@@ -1,0 +1,42 @@
+---
+- name: Create application and configuration folders
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ application_user }}"
+    group: "{{ application_user }}"
+    mode: '0744'
+  loop:
+    - "{{ application_dir }}"
+    - "{{ application_dir }}/db"
+
+- name: Deploy docker-compose file
+  template:
+    src: templates/docker-compose.yml.j2
+    dest: "{{ application_dir }}/docker-compose.yml"
+    mode: '600'
+    owner: "{{ application_user }}"
+    group: "{{ application_user }}"
+
+- name: Deploy database init script
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode}}"
+    owner: "{{ application_user }}"
+    group: "{{ application_user }}"
+  loop:
+    - src: files/init-user-db.sh
+      dest: "{{ init_db_script_path }}"
+      mode: '644'
+
+- debug: 
+    msg: "Trigger docker compose stop"
+  notify: Stop docker compose application
+  changed_when: true
+
+- debug: 
+    msg: "Trigger docker compose start"
+  notify: Start docker compose application
+  changed_when: true
+...

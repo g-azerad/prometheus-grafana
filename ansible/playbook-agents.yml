@@ -1,0 +1,10 @@
+---
+- name: Monitoring deployment playbook
+  hosts: application
+  become: true
+  gather_facts: false
+  roles:
+    - role: agents
+      tags:
+        - agents
+...

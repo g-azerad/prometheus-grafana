@@ -1,0 +1,10 @@
+---
+- name: Applicative deployment playbook
+  hosts: application
+  become: true
+  gather_facts: false
+  roles:
+    - role: application
+      tags:
+        - application
+...

@@ -1,0 +1,19 @@
+---
+- name: Stop docker compose application
+  docker_compose_v2:
+    project_src: "{{ application_dir }}"
+    state: absent
+  become_user: "{{ application_user }}"
+
+- name: Start docker compose application
+  docker_compose_v2:
+    project_src: "{{ application_dir }}"
+    state: present
+  become_user: "{{ application_user }}"
+
+- name: Restart docker compose application
+  docker_compose_v2:
+    project_src: "{{ application_dir }}"
+    state: restarted
+  become_user: "{{ application_user }}"
+...

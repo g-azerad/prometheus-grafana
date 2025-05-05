@@ -1,0 +1,142 @@
+---
+# - name: Stop docker if running
+#   systemd_service:
+#     name: docker
+#     state: stopped
+
+- name: Set operating_system and docker package version from facts
+  set_fact:
+    os: "{{ ansible_distribution | lower }}"
+    docker_pkg_version: >-
+      {% if ansible_distribution == 'Debian' %}5:{{ versions.docker }}-1~{{ ansible_distribution | lower }}.{{ ansible_distribution_major_version }}~{{ ansible_distribution_release }}
+      {% elif ansible_distribution == 'Ubuntu' %}5:{{ versions.docker }}-1~{{ ansible_distribution | lower }}.{{ ansible_distribution_version }}~{{ ansible_distribution_release }}
+      {% endif %}
+  delegate_to: localhost
+  when: os is not defined or os | length == 0
+
+- name: Check if operating system is supported
+  fail:
+    msg: "Unsupported operating system: {{ os }} (only debian or ubuntu are)"
+  when: os not in ['debian', 'ubuntu']
+
+- name: Uninstall old docker versions
+  apt:
+    name:
+      - docker.io
+      - docker-compose
+      - docker-doc
+      - podman-docker
+    state: absent
+
+- name: Ensure dependencies are installed.
+  apt:
+    name:
+      - gpg
+      - curl
+      - apt-transport-https
+      - ca-certificates
+      - uidmap
+      - firewalld
+    state: present
+
+- name: Check if Docker GPG apt key and repository file already exist
+  stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/apt/keyrings/docker.asc
+    - /etc/apt/sources.list.d/docker.list
+  register: docker_apt_config
+
+- name: Add Docker GPG apt Key
+  get_url:
+    url: "https://download.docker.com/linux/{{ os }}/gpg"
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+    force: false
+    checksum: "{{ docker_apt_gpg_key_checksum | default(omit) }}"
+  when: not docker_apt_config.results[0].stat.exists
+
+- name: Get DEB architecture
+  shell: dpkg --print-architecture
+  register: deb_architecture
+  changed_when: false
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb [arch={{ deb_architecture.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ os }} {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+    update_cache: true
+  when: not docker_apt_config.results[1].stat.exists
+
+- name: Install Docker version {{ versions.docker }}
+  apt:
+    name:
+      - docker-ce={{ docker_pkg_version }}
+      - docker-ce-cli={{ docker_pkg_version }}
+      - docker-ce-rootless-extras={{ docker_pkg_version }}
+      - containerd.io
+    update_cache: true
+  # vars:
+  #   docker_pkg_version: "5:{{ versions.docker }}-1~{{ os }}.{{ ansible_distribution_major_version }}~{{ ansible_distribution_release }}"
+
+- name: Enable docker and containerd service to start on boot, start them too now.
+  systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - docker
+    - containerd
+
+- name: Install acl package
+  apt:
+    name: acl
+
+- name: Install python3-pip package
+  apt:
+    name: python3-pip
+
+- name: Install Docker python package
+  pip:
+    name: docker
+    extra_args: --break-system-packages
+
+- name: Install docker-compose python package
+  pip:
+    name: docker-compose
+    extra_args: "--break-system-packages --no-build-isolation --ignore-installed PyYAML"
+
+- name: Create docker group
+  group:
+    name: docker
+    state: present
+
+- name: Add {{ application_user }} user to docker group
+  user:
+    name: "{{ application_user }}"
+    state: present
+    shell: /bin/bash
+    groups: docker
+    append: yes
+
+- name: Stop system-wide Docker daemon if running
+  systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - docker
+    - docker.socket
+
+- name: Reload docker daemon and enable the service
+  systemd_service:
+    name: docker
+    enabled: true
+    daemon_reload: true
+
+- name: Launch docker service
+  systemd_service:
+    name: docker
+    state: started
+...

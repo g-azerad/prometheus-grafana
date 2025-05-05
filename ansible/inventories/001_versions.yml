@@ -1,0 +1,7 @@
+versions:
+  docker: 28.1.1
+  mkcert: v1.4.4
+  node_exporter: v1.9.1
+  portainer_agent: 2.29.1
+  counter_api: latest
+  postgres: 17.4 
