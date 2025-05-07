@@ -1,0 +1,3 @@
+monitoring_dir: "/srv/monitoring"
+prometheus_conf_dir: "{{ monitoring_dir }}/prometheus"
+prometheus_conf_path: "{{ monitoring_dir }}/prometheus/prometheus.yml"

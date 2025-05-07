@@ -1,0 +1,19 @@
+---
+- name: Stop docker compose monitoring
+  docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: absent
+  become_user: "{{ application_user }}"
+
+- name: Start docker compose monitoring
+  docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: present
+  become_user: "{{ application_user }}"
+
+- name: Restart docker compose monitoring
+  docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: restarted
+  become_user: "{{ application_user }}"
+...

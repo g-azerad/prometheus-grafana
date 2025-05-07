@@ -1,0 +1,44 @@
+groups:
+  - name: instance_down
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} instance is down !!"
+          description: "{{ $labels.instance }} instance is down, please restart it"
+
+  - name: cpu_alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 70
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected on instance {{ $labels.instance }}"
+          description: "The CPU usage on instance {{ $labels.instance }} has been over 70% for more than 3 minutes."
+
+      - alert: NormalCPUUsage
+        expr: |
+          max_over_time((1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])))[5m:2m]) * 100 > 70 
+          and (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100 < 30
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU back to normal over the last 5 minutes on instance {{ $labels.instance }}"
+          description: "CPU back to normal over the last 5 minutes on instance {{ $labels.instance }}"
+
+  - name: disk_alerts
+    rules:
+      - alert: LowDiskAvailable
+        expr: node_filesystem_avail_bytes / node_filesystem_size_bytes * 100 < 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk available detected on instance {{ $labels.instance }}"
+          description: "Low disk available detected on instance {{ $labels.instance }}"

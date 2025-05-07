@@ -1,0 +1,38 @@
+---
+- name: Create application and configuration folders
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ application_user }}"
+    group: "{{ application_user }}"
+    mode: '0744'
+  loop:
+    - "{{ monitoring_dir }}"
+    - "{{ node_exporter_conf_dir }}"
+
+- name: Deploy docker-compose file
+  template:
+    src: templates/docker-compose.yml.j2
+    dest: "{{ monitoring_dir }}/docker-compose.yml"
+    mode: '600'
+    owner: "{{ application_user }}"
+    group: "{{ application_user }}"
+
+# - debug: 
+#     msg: "Trigger docker compose stop"
+#   notify: Stop docker compose
+#   changed_when: true
+# 
+# - name: Flush handlers
+#   meta: flush_handlers
+
+- debug: 
+    msg: "Trigger docker compose stop"
+  notify: Stop docker compose monitoring
+  changed_when: true
+
+- debug: 
+    msg: "Trigger docker compose start"
+  notify: Start docker compose monitoring
+  changed_when: true
+...

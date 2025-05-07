@@ -1,0 +1,98 @@
+services:
+  reverse_proxy:
+    image: nginx:1.28.0
+    container_name: reverse_proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - monitoring
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certs/perso.com.crt:/etc/ssl/certs/perso.com.crt:ro
+      - ./certs/perso.com.key:/etc/ssl/private/perso.com.key:ro
+      - ./nginx/log:/var/log/nginx
+      - /etc/localtime:/etc/localtime:ro
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.2
+    container_name: nginx_exporter
+    ports:
+      - "9113:9113"
+    networks:
+      - monitoring
+    command:
+      - '--nginx.scrape-uri=http://reverse_proxy:8080/stub_status'
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: prometheus
+    networks:
+      - monitoring
+    volumes:
+      - ./prometheus/config:/etc/prometheus
+      - prometheus-data:/prometheus
+      - /etc/localtime:/etc/localtime:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=20GB'
+      - '--web.enable-admin-api'
+      - '--web.external-url=https://prometheus.perso.com'
+    restart: always
+
+  grafana:
+    image: grafana/grafana:11.6.1
+    container_name: grafana
+    networks:
+      - monitoring
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      # Setting admin account credentials
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SERVER_DOMAIN: "grafana.perso.com"
+      GF_SERVER_ROOT_URL: "https://grafana.perso.com"
+    restart: always
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: alertmanager
+    expose: 
+      - "9093"
+    networks:
+      - monitoring
+    volumes:
+      - alertmanager-data:/data
+      - ./alertmanager/alertmanager.yml:/config/alertmanager.yml
+      - /etc/localtime:/etc/localtime:ro
+    command: --config.file=/config/alertmanager.yml --log.level=debug
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  alertmanager-data:
+
+networks:
+  monitoring:
+    driver: 'bridge'
+
+#  consul:
+#    image: hashicorp/consul:latest
+#    container_name: consul-server
+#    ports:
+#      - "8500:8500" # HTTP API/UI
+#      - "8600:8600/udp" # DNS
+#      - "8301:8301" # LAN
+#      - "8300:8300" # Server RPC
+#    command: "agent -server -bootstrap-expect=1 -ui -node=server-1 -client=0.0.0.0 -advertise=192.168.8.202"
+#    volumes:
+#      - consul-data:/consul/data
+#    networks:
+#      - monitoring
+# 

@@ -1,0 +1,61 @@
+global:
+  scrape_interval: 1m
+  evaluation_interval: 1m
+  external_labels:
+    datacenter: pc-local
+
+rule_files:
+  - /etc/prometheus/alert.rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+      - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 1m
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  - job_name: 'node'
+    scrape_interval: 1m
+    static_configs:
+      - targets: ['vm-debian-1:9100', 'vm-debian-2:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: "vm-debian-1.*"
+        target_label: environment
+        replacement: training
+      - source_labels: [__address__]
+        regex: "vm-debian-2.*"
+        target_label: environment
+        replacement: dev
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_.*'
+        action: drop
+
+  - job_name: 'nginx'
+    scrape_interval: 1m
+    static_configs:
+      - targets: ['nginx_exporter:9113']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_.*'
+        action: drop
+
+  - job_name: 'docker-containers'
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+
+remote_write:
+  - url: http://vm-monitoring:8428/api/v1/write
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 30
+      capacity: 2000
+    write_relabel_configs:
+      - source_labels: [job]
+        regex: "node"
+        action: keep
